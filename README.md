@@ -163,6 +163,84 @@ func main() {
 }
 ```
 
+# Cassandra single node
+
+# Result
+Inserted 685 rows in 1.00 seconds (684.80 inserts/second)
+
+
+```sh
+docker pull cassandra:latest
+docker run  --name cassandra1 -d --network host  cassandra:latest
+docker logs -f cassandra1
+docker exec -it cassandra1 cqlsh
+
+```
+
+```sql
+CREATE KEYSPACE ks1 WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+DESCRIBE ks1
+
+CREATE TABLE ks1.impressions (
+    impression_id VARCHAR PRIMARY KEY,
+    ad_id VARCHAR,
+    image_url VARCHAR,
+    click_url VARCHAR,
+    impression_time TIMESTAMP
+);
+
+
+```
+
+```go
+package main
+
+import (
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/gocql/gocql"
+	"github.com/google/uuid"
+)
+
+func main() {
+	cluster := gocql.NewCluster("127.0.0.1")
+	cluster.Keyspace = "ks1"
+	cluster.Consistency = gocql.One
+
+	session, err := cluster.CreateSession()
+	if err != nil {
+		log.Fatalf("Failed to connect to ScyllaDB: %v", err)
+	}
+	defer session.Close()
+
+	query := `INSERT INTO impressions (impression_id, ad_id, image_url, click_url, impression_time)
+              VALUES (?, ?, ?, ?, ?)`
+
+	maxDuration := 1 * time.Second
+	startTime := time.Now()
+	count := 0
+
+	for time.Since(startTime) < maxDuration {
+		impressionID := uuid.New().String()
+		adID := "ad456"
+		imageURL := "https://example.com/image.jpg"
+		clickURL := "https://advertiser.com/click"
+		impressionTime := time.Now().UTC()
+
+		if err := session.Query(query, impressionID, adID, imageURL, clickURL, impressionTime).Exec(); err != nil {
+			log.Fatalf("Insert failed: %v", err)
+		}
+		count++
+	}
+
+	elapsed := time.Since(startTime)
+	fmt.Printf("Inserted %d rows in %.2f seconds (%.2f inserts/second)\n", count, elapsed.Seconds(), float64(count)/elapsed.Seconds())
+}
+
+```
+
 ---
 
 # ScyllaDB single node
