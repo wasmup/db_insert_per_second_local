@@ -1,6 +1,8 @@
 # Db Insert Per Second Using Local Docker Containers
 Simple DB insert per second
 
+---
+
 # PostgreSQL
 ```sh
 docker pull postgres:latest
@@ -24,63 +26,8 @@ CREATE TABLE impressions (
 
 ```
 
-```go
-package main
+[Source](postgresql/main.go)
 
-import (
-	"context"
-	"database/sql"
-	"fmt"
-	"log/slog"
-	"os"
-	"time"
-	_ "time/tzdata"
-
-	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
-)
-
-func main() {
-	loc, err := time.LoadLocation("UTC")
-	if err != nil {
-		panic(err)
-	}
-	time.Local = loc
-
-	dsn := os.ExpandEnv("user=$PSQL_USERNAME password=$PSQL_PASSWORD host=localhost port=5432 dbname=$PSQL_DB sslmode=disable")
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		slog.Error("db open failed", "error", err)
-		return
-	}
-	defer db.Close()
-
-	query := `INSERT INTO impressions (impression_id, ad_id, image_url, click_url)
-              VALUES ($1, $2, $3, $4)`
-
-	maxDuration := 1 * time.Second
-	startTime := time.Now()
-	count := 0
-	ctx := context.Background()
-
-	for time.Since(startTime) < maxDuration {
-		impressionID := uuid.New().String()
-		adID := "ad456"
-		imageURL := "https://example.com/image.jpg"
-		clickURL := "https://advertiser.com/click"
-
-		_, err := db.ExecContext(ctx, query, impressionID, adID, imageURL, clickURL)
-		if err != nil {
-			slog.Error("db insert failed", "error", err)
-			return
-		}
-		count++
-	}
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("Inserted %d rows in %.2f seconds (%.2f inserts/second)\n", count, elapsed.Seconds(), float64(count)/elapsed.Seconds())
-}
-```
 
 ---
 
@@ -104,64 +51,10 @@ CREATE TABLE impressions (
 
 ```
 
-```go
-package main
+[Source](oracle/main.go)
 
-import (
-	"context"
-	"database/sql"
-	"fmt"
-	"log/slog"
-	"os"
-	"time"
-	_ "time/tzdata"
 
-	_ "github.com/godror/godror"
-	"github.com/google/uuid"
-)
-
-func main() {
-	loc, err := time.LoadLocation(`UTC`)
-	if err != nil {
-		panic(err)
-	}
-	time.Local = loc
-
-	dsn := os.ExpandEnv("$ORACLE_USERNAME/$ORACLE_PASSWORD@$ORACLE_HOST/$ORACLE_DB")
-	db, err := sql.Open("godror", dsn)
-	if err != nil {
-		slog.Error(`db open failed`, `error`, err)
-		return
-	}
-	defer db.Close()
-
-	query := `INSERT INTO impressions (impression_id, ad_id, image_url, click_url )
-              VALUES (:1, :2, :3, :4 )`
-
-	maxDuration := 1 * time.Second
-	startTime := time.Now()
-	count := 0
-	var ctx = context.Background()
-
-	for time.Since(startTime) < maxDuration {
-		impressionID := uuid.New().String()
-		adID := "ad456"
-		imageURL := "https://example.com/image.jpg"
-		clickURL := "https://advertiser.com/click"
-
-		_, err := db.ExecContext(ctx, query, impressionID, adID, imageURL, clickURL)
-		if err != nil {
-			slog.Error(`db insert failed`, `error`, err)
-			return
-		}
-
-		count++
-	}
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("Inserted %d rows in %.2f seconds (%.2f inserts/second)\n", count, elapsed.Seconds(), float64(count)/elapsed.Seconds())
-}
-```
+---
 
 # Cassandra single node
 
@@ -192,54 +85,9 @@ CREATE TABLE ks1.impressions (
 
 ```
 
-```go
-package main
 
-import (
-	"fmt"
-	"log"
-	"time"
+[Source](cassandra/main.go)
 
-	"github.com/gocql/gocql"
-	"github.com/google/uuid"
-)
-
-func main() {
-	cluster := gocql.NewCluster("127.0.0.1")
-	cluster.Keyspace = "ks1"
-	cluster.Consistency = gocql.One
-
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatalf("Failed to connect to ScyllaDB: %v", err)
-	}
-	defer session.Close()
-
-	query := `INSERT INTO impressions (impression_id, ad_id, image_url, click_url, impression_time)
-              VALUES (?, ?, ?, ?, ?)`
-
-	maxDuration := 1 * time.Second
-	startTime := time.Now()
-	count := 0
-
-	for time.Since(startTime) < maxDuration {
-		impressionID := uuid.New().String()
-		adID := "ad456"
-		imageURL := "https://example.com/image.jpg"
-		clickURL := "https://advertiser.com/click"
-		impressionTime := time.Now().UTC()
-
-		if err := session.Query(query, impressionID, adID, imageURL, clickURL, impressionTime).Exec(); err != nil {
-			log.Fatalf("Insert failed: %v", err)
-		}
-		count++
-	}
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("Inserted %d rows in %.2f seconds (%.2f inserts/second)\n", count, elapsed.Seconds(), float64(count)/elapsed.Seconds())
-}
-
-```
 
 ---
 
@@ -281,53 +129,8 @@ CREATE TABLE ks1.impressions (
 
 ```
 
-```go
-package main
+[Source](scylladb/main.go)
 
-import (
-	"fmt"
-	"log"
-	"time"
-
-	"github.com/gocql/gocql"
-	"github.com/google/uuid"
-)
-
-func main() {
-	cluster := gocql.NewCluster("172.22.0.2")
-	cluster.Keyspace = "ks1"
-	cluster.Consistency = gocql.One
-
-	session, err := cluster.CreateSession()
-	if err != nil {
-		log.Fatalf("Failed to connect to ScyllaDB: %v", err)
-	}
-	defer session.Close()
-
-	query := `INSERT INTO impressions (impression_id, ad_id, image_url, click_url, impression_time)
-              VALUES (?, ?, ?, ?, ?)`
-
-	maxDuration := 1 * time.Second
-	startTime := time.Now()
-	count := 0
-
-	for time.Since(startTime) < maxDuration {
-		impressionID := uuid.New().String()
-		adID := "ad456"
-		imageURL := "https://example.com/image.jpg"
-		clickURL := "https://advertiser.com/click"
-		impressionTime := time.Now().UTC()
-
-		if err := session.Query(query, impressionID, adID, imageURL, clickURL, impressionTime).Exec(); err != nil {
-			log.Fatalf("Insert failed: %v", err)
-		}
-		count++
-	}
-
-	elapsed := time.Since(startTime)
-	fmt.Printf("Inserted %d rows in %.2f seconds (%.2f inserts/second)\n", count, elapsed.Seconds(), float64(count)/elapsed.Seconds())
-}
-```
 
 ---
 
@@ -348,3 +151,5 @@ Inserted 32784 impressions in 1.00 seconds (32783.21 inserts/second)
 # Result
 
 Inserted 437000 impressions in 1.00 seconds (436891.20 inserts/second)
+
+---
