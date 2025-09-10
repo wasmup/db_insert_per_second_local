@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_tickets_event_status ON tickets (event_id, status)

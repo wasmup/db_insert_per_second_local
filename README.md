@@ -153,3 +153,17 @@ Inserted 32784 impressions in 1.00 seconds (32783.21 inserts/second)
 Inserted 437000 impressions in 1.00 seconds (436891.20 inserts/second)
 
 ---
+
+# PostgreSQL Ticket
+[Source](ticket/pg/main.go)
+
+
+# Result
+## Load test
+
+```sh
+Starting load test: url=http://localhost:8080/sell concurrency=8 total=1000
+Load test completed. Success=1000, Failed=0, elapsed=3.796909835s, throughput=263.37 req/s
+```
+
+---
